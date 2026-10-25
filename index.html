@@ -11,10 +11,11 @@
   --ink:#e6ecf7;         /* 主要文字 */
   --mute:#93a3c2;        /* 次要文字 */
   --sun:#ffbf47;         /* 陽光 */
-  --dateline:#ff6b5a;    /* 國際換日線 */
+  --dateline:#ff3b30;
+  --prime:#ffffff;    /* 國際換日線 */
   --midnight:#8fb8ff;    /* 午夜線 */
-  --ocean:#1d4f7a;
-  --land:#7fa36b;
+  --ocean:#2f86d6;
+  --land:#8cc46a;
   --newday:rgba(255,140,60,.55);
   --oldday:rgba(90,150,255,.55);
   --f-display:"Noto Serif TC","Songti TC",serif;
@@ -54,7 +55,8 @@ td.lon{color:var(--mute);font-family:var(--f-mono);font-size:12px}
 tr.isnew td.t{color:#ffb3a8}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--mute)}
 .legend span::before{content:"";display:inline-block;width:18px;height:2px;vertical-align:middle;margin-right:6px;background:var(--c)}
-.legend span.sw::before{width:14px;height:14px;border-radius:3px;opacity:.75}
+.legend span.sw::before{width:14px;height:14px;border-radius:3px;background:var(--ocean)}
+.legend span.sw.new::before{background:repeating-linear-gradient(-45deg,rgba(255,150,50,.9) 0 2px,var(--ocean) 2px 6px)}
 .flat h2,.rules h2{font-family:var(--f-display);font-size:20px;margin:0 0 8px;letter-spacing:.03em}
 #flat{aspect-ratio:2/1;border-radius:6px}
 .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
@@ -129,10 +131,10 @@ tr.isnew td.t{color:#ffb3a8}
           <input type="range" id="speed" min="1" max="10" value="4" style="width:90px">
         </div>
         <div class="legend">
-          <span class="sw" style="--c:rgb(255,140,60)">較新的日期</span>
-          <span class="sw" style="--c:rgb(90,150,255)">較舊的日期</span>
+          <span class="sw new">較新的日期（橘色斜線）</span>
+          <span class="sw old">較舊的日期（無斜線）</span>
           <span style="--c:var(--dateline)">國際換日線 180°</span>
-          <span style="--c:#f2e6c9">本初子午線 0°</span>
+          <span style="--c:var(--prime)">本初子午線 0°</span>
           <span style="--c:var(--midnight)">午夜線（地方時 0:00）</span>
           <span style="--c:var(--sun)">正午線（太陽正下方）</span>
         </div>
@@ -144,7 +146,7 @@ tr.isnew td.t{color:#ffb3a8}
   <section class="card flat">
     <h2>攤平來看：今天在哪裡，明天在哪裡</h2>
     <canvas id="flat" aria-label="平面世界地圖，顯示日夜與兩個日期的範圍"></canvas>
-    <p class="note" style="margin:8px 0 0">橘色是比較新的那一天，範圍永遠從午夜線往東延伸到換日線為止；藍色是比較舊的那一天。UTC 12:00 時午夜線剛好落在 180°，全世界短暫同一天。</p>
+    <p class="note" style="margin:8px 0 0">畫橘色斜線的是比較新的那一天，範圍永遠從午夜線往東延伸到換日線為止；沒有斜線的是比較舊的那一天。UTC 12:00 時午夜線剛好落在 180°，全世界短暫同一天。</p>
   </section>
 
   <section class="rules">
@@ -169,7 +171,7 @@ const CONTINENTS = [
   {n:"南極洲",lon:30,lat:-78},{n:"太平洋",lon:-150,lat:5,sea:true},{n:"大西洋",lon:-35,lat:25,sea:true},{n:"印度洋",lon:78,lat:-15,sea:true}
 ];
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const C = {}; ["--space","--panel","--line","--ink","--mute","--sun","--dateline","--midnight","--ocean","--land","--newday","--oldday"].forEach(k=>C[k.slice(2)]=css(k));
+const C = {}; ["--space","--panel","--line","--ink","--mute","--sun","--dateline","--prime","--midnight","--ocean","--land","--newday","--oldday"].forEach(k=>C[k.slice(2)]=css(k));
 const D2R = Math.PI/180;
 const WEEK = "日一二三四五六";
 
@@ -188,6 +190,16 @@ const subLon = () => { let l=(12-utcH())*15; return ((l+540)%360)-180; };   // �
 function localInfo(lon){ const h=utcH()+lon/15; const off=Math.floor(h/24); return {h:h-off*24, off}; }
 function midnightLon(){ const t=utcH(); return t<=12 ? -15*t : 15*(24-t); }
 
+// 橘色斜線花紋，標示較新的日期
+let stripeTile=null;
+function stripes(ctx){
+  if(!stripeTile){
+    stripeTile=document.createElement("canvas"); stripeTile.width=stripeTile.height=16;
+    const t=stripeTile.getContext("2d"); t.strokeStyle="rgba(255,150,50,.8)"; t.lineWidth=1.6;
+    t.beginPath(); t.moveTo(-4,20); t.lineTo(20,-4); t.moveTo(-4,4); t.lineTo(4,-4); t.moveTo(12,20); t.lineTo(20,12); t.stroke();
+  }
+  return ctx.createPattern(stripeTile,"repeat");
+}
 // 晨昏線：太陽高度角為 0 的點，回傳 [經度, 緯度]
 function terminator(sl,decDeg){
   const d=decDeg*D2R, out=[];
@@ -258,11 +270,6 @@ function drawGlobe(){
   // 日期分區
   const ml=midnightLon();
   const ang=l=>-(l-sl)*D2R;
-  // 兩個日期的扇形：只改色相、保留明暗，陸地海洋仍分得出來
-  gx.save(); gx.globalCompositeOperation="color";
-  gx.beginPath(); gx.moveTo(cx,cy); gx.arc(cx,cy,R,ang(ml),ang(180),true); gx.closePath(); gx.fillStyle=C.newday; gx.fill();
-  gx.beginPath(); gx.moveTo(cx,cy); gx.arc(cx,cy,R,ang(-180),ang(ml),true); gx.closePath(); gx.fillStyle=C.oldday; gx.fill();
-  gx.restore();
   // 夜晚陰影（逐點算太陽高度角）
   const s=shadeG.width, sc=shadeG.getContext("2d"), img=sc.createImageData(s,s), dd=dec*D2R;
   for(let j=0;j<s;j++)for(let i=0;i<s;i++){
@@ -275,6 +282,9 @@ function drawGlobe(){
   }
   sc.putImageData(img,0,0);
   gx.imageSmoothingEnabled=true; gx.drawImage(shadeG,cx-R,cy-R,2*R,2*R);
+  // 較新的日期：橘色斜線扇形（不改底色，白天維持明亮）
+  gx.beginPath(); gx.moveTo(cx,cy); gx.arc(cx,cy,R,ang(ml),ang(180),true); gx.closePath();
+  gx.fillStyle=stripes(gx); gx.fill();
   // 晨昏線與白天／黑夜標籤
   gx.beginPath(); terminator(sl,dec).forEach((p,i)=>{const [x,y]=polar(p[0],p[1]); i?gx.lineTo(x,y):gx.moveTo(x,y);});
   gx.strokeStyle="rgba(255,214,140,.85)"; gx.lineWidth=2; gx.stroke();
@@ -289,14 +299,15 @@ function drawGlobe(){
   for(let lon=-165;lon<=180;lon+=15){
     const [x,y]=polar(lon,-90);
     gx.beginPath(); gx.moveTo(cx,cy); gx.lineTo(x,y);
-    if(lon===180){gx.strokeStyle=C.dateline;gx.lineWidth=1.6;}
-    else if(lon===0){gx.strokeStyle="#f2e6c9";gx.lineWidth=2;}
-    else {gx.strokeStyle="rgba(230,236,247,.28)";gx.lineWidth=.8;}
+    if(lon===180||lon===0) continue;
+    gx.strokeStyle="rgba(230,236,247,.22)";gx.lineWidth=.7;
     gx.stroke();
   }
   // 午夜線、正午線
   const line=(l,col,wd,dash)=>{const [x,y]=polar(l,-90);gx.beginPath();gx.moveTo(cx,cy);gx.lineTo(x,y);gx.strokeStyle=col;gx.lineWidth=wd;gx.setLineDash(dash||[]);gx.stroke();gx.setLineDash([]);};
   line(sl,C.sun,1.2,[5,4]); line(ml,C.midnight,1.6);
+  // 重點：本初子午線、國際換日線（加深色描邊，蓋在其他線上面）
+  for(const [l,col] of [[0,C.prime],[180,C.dateline]]){ line(l,"rgba(0,0,0,.6)",7); line(l,col,3.5); }
   // 大洲標籤
   gx.textAlign="center"; gx.textBaseline="middle";
   for(const c of CONTINENTS){
@@ -313,6 +324,7 @@ function drawGlobe(){
     gx.strokeStyle="#000"; gx.lineWidth=1.2; gx.stroke();
     gx.shadowColor="rgba(0,0,0,.9)"; gx.shadowBlur=4; gx.fillText(c.n,tx+8,ty); gx.shadowBlur=0;
   }
+  for(const [l,txt,col] of [[0,"本初子午線 0°",C.prime],[180,"國際換日線 180°",C.dateline]]) lineLabel(l,txt,col);
   gx.restore();
 
   // 外框、經度刻度、日期標籤
@@ -334,6 +346,18 @@ function drawGlobe(){
     if(360-span>8) lab(ml-(360-span)/2, fmtDate(day), C.midnight); if(span>8) lab(ml+span/2, fmtDate(day+864e5), "#ffc48f"); }
 }
 
+// 沿著經線寫字，文字保持不倒過來
+function lineLabel(l,txt,col){
+  let a=(l-subLon())*D2R; const r=G.R*0.66, x=G.cx+r*Math.cos(a), y=G.cy-r*Math.sin(a);
+  let rot=-a; rot=((rot%(2*Math.PI))+2*Math.PI)%(2*Math.PI); if(rot>Math.PI/2&&rot<Math.PI*1.5) rot-=Math.PI;
+  gx.save(); gx.translate(x,y); gx.rotate(rot);
+  gx.font=`700 14px ${css("--f-body")}`; gx.textAlign="center"; gx.textBaseline="middle";
+  const tw=gx.measureText(txt).width+16;
+  gx.fillStyle="rgba(8,14,28,.88)"; gx.beginPath(); gx.roundRect(-tw/2,-12,tw,24,6); gx.fill();
+  gx.strokeStyle=col; gx.lineWidth=1.5; gx.stroke();
+  gx.fillStyle=col; gx.fillText(txt,0,1); gx.restore();
+}
+
 /* ---------- 平面地圖 ---------- */
 const f=$("flat"), fx=f.getContext("2d"); let F={};
 const shadeF=document.createElement("canvas"); shadeF.width=360; shadeF.height=180;
@@ -351,9 +375,6 @@ function drawFlat(){
   }
   // 日期分區
   const [mx]=fxy(ml,0);
-  fx.save(); fx.globalCompositeOperation="color";
-  fx.fillStyle=C.oldday; fx.fillRect(0,0,mx,h); fx.fillStyle=C.newday; fx.fillRect(mx,0,w-mx,h);
-  fx.restore();
   // 夜晚
   const sc=shadeF.getContext("2d"), img=sc.createImageData(360,180);
   for(let j=0;j<180;j++)for(let i=0;i<360;i++){
@@ -363,6 +384,7 @@ function drawFlat(){
     img.data[k]=2;img.data[k+1]=4;img.data[k+2]=16;img.data[k+3]=a*255;
   }
   sc.putImageData(img,0,0); fx.drawImage(shadeF,0,0,w,h);
+  fx.fillStyle=stripes(fx); fx.fillRect(mx,0,w-mx,h);
   const tp=terminator(sl,dec*180/Math.PI).map(p=>[((p[0]+540)%360)-180,p[1]]).sort((a,b)=>a[0]-b[0]);
   fx.beginPath(); tp.forEach((p,i)=>{const [x,y]=fxy(p[0],p[1]); i?fx.lineTo(x,y):fx.moveTo(x,y);});
   fx.strokeStyle="rgba(255,214,140,.85)"; fx.lineWidth=2; fx.stroke();
@@ -371,14 +393,22 @@ function drawFlat(){
   // 經線
   for(let lon=-180;lon<=180;lon+=15){
     const [x]=fxy(lon,0); fx.beginPath(); fx.moveTo(x,0); fx.lineTo(x,h);
-    if(Math.abs(lon)===180){fx.strokeStyle=C.dateline;fx.lineWidth=1.6;} else if(lon===0){fx.strokeStyle="#f2e6c9";fx.lineWidth=1.6;} else {fx.strokeStyle="rgba(230,236,247,.22)";fx.lineWidth=.7;}
-    fx.stroke();
+    if(lon===0||Math.abs(lon)===180) continue;
+    fx.strokeStyle="rgba(230,236,247,.2)";fx.lineWidth=.7; fx.stroke();
   }
   fx.setLineDash([4,4]); fx.strokeStyle="rgba(230,236,247,.4)"; fx.lineWidth=1; fx.beginPath(); fx.moveTo(0,h/2); fx.lineTo(w,h/2); fx.stroke();
   // 午夜線、正午線
   const [nx]=fxy(sl,0);
   fx.setLineDash([5,4]); fx.strokeStyle=C.sun; fx.lineWidth=1.2; fx.beginPath(); fx.moveTo(nx,0); fx.lineTo(nx,h); fx.stroke(); fx.setLineDash([]);
   fx.strokeStyle=C.midnight; fx.lineWidth=1.6; fx.beginPath(); fx.moveTo(mx,0); fx.lineTo(mx,h); fx.stroke();
+  // 重點：本初子午線、國際換日線
+  const vline=(x,col)=>{for(const [c,wd] of [["rgba(0,0,0,.6)",7],[col,3.5]]){fx.strokeStyle=c;fx.lineWidth=wd;fx.beginPath();fx.moveTo(x,0);fx.lineTo(x,h);fx.stroke();}};
+  vline(w/2,C.prime); vline(1,C.dateline); vline(w-1,C.dateline);
+  const flab=(x,txt,col,align)=>{fx.font=`700 ${Math.max(12,w/75)}px ${css("--f-body")}`;fx.textBaseline="middle";const tw=fx.measureText(txt).width+14,th=24,y=h-th-8;
+    const x0=align==="left"?x+6:align==="right"?x-6-tw:x-tw/2;
+    fx.fillStyle="rgba(8,14,28,.88)";fx.beginPath();fx.roundRect(x0,y,tw,th,6);fx.fill();fx.strokeStyle=col;fx.lineWidth=1.5;fx.stroke();
+    fx.fillStyle=col;fx.textAlign="left";fx.fillText(txt,x0+7,y+th/2+1);};
+  flab(w/2,"本初子午線 0°",C.prime,"center"); flab(0,"換日線 180°",C.dateline,"left"); flab(w,"換日線 180°",C.dateline,"right");
   // 太陽直射點
   const [sx,sy]=fxy(sl,declination()); fx.beginPath(); fx.arc(sx,sy,7,0,Math.PI*2); fx.fillStyle=C.sun; fx.fill();
   // 大洲
