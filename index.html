@@ -77,11 +77,10 @@ tr.isnew td.t{color:#ffb3a8}
 #globe.dragging{cursor:grabbing}
 .gbottom{display:flex;flex-direction:column;gap:10px;margin-top:6px}
 .timerow{flex-wrap:nowrap}
-.stage{display:grid;grid-template-columns:clamp(128px,14%,150px) minmax(0,1fr);gap:16px;align-items:center;margin-top:8px}
+.stage{display:grid;grid-template-columns:clamp(264px,28%,300px) minmax(0,1fr);gap:16px;align-items:center;margin-top:8px}
 @media (max-width:600px){.stage{grid-template-columns:minmax(0,1fr)}}
-.clocks{display:flex;flex-direction:column;gap:6px;min-width:0}
-.clocks .ck{flex:none}
-@media (max-width:600px){.clocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+/* 兩行：左行台灣、日本、英國，右行美東、美西、小船 */
+.clocks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,auto);grid-auto-flow:column;gap:6px;min-width:0}
 .ck{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"nm nm" "dt dt" "dy dn";gap:2px 8px;align-items:center;border:2px solid var(--line);border-left:6px solid var(--k);border-radius:8px;padding:4px 10px;transition:border-color .3s,background .3s}
 .ck{border-color:var(--line)}
 .ck.isnew{background:rgba(255,160,74,.07)}
@@ -482,7 +481,7 @@ function drawPanel(){
 /* ---------- 四個時區時鐘 ---------- */
 const SHIPCK={n:"小船",k:"#ffffff",ship:true};
 const CLOCKS=[...CITIES,SHIPCK];
-const lonTxt=l=>`${l>=0?"東經":"西經"}${Math.abs(l).toFixed(1)}°`;
+const lonTxt=l=>`${l>=0?"東經":"西經"}${Math.abs(l).toFixed(0)}°`;
 function buildClocks(){
   $("clocks").innerHTML=CLOCKS.map((c,i)=>`<div class="ck${c.ship?" shipck":""}" id="ck${i}" style="--k:${c.k}">
       <div class="nm">${c.n}<span class="zn">${c.ship?"":c.sub+"・UTC"+(c.tz>=0?"+":"−")+Math.abs(c.tz)}</span></div>
@@ -494,7 +493,7 @@ const lastDay={};
 function drawClocks(day){
   CLOCKS.forEach((c,i)=>{
     const tz=c.ship?ship.lon/15:c.tz;
-    if(c.ship) $("ck"+i).querySelector(".zn").textContent=lonTxt(ship.lon)+"・"+(ship.dir>0?"向東":"向西");
+    if(c.ship) $("ck"+i).querySelector(".zn").textContent=lonTxt(ship.lon)+(ship.dir>0?" →":" ←");
     let h=utcH()+tz; const off=Math.floor(h/24); h-=off*24;
     const H=Math.floor(h), M=Math.floor((h-H)*60+1e-6);
     const el=$("ck"+i), isDay=h>=6&&h<18, dn=el.querySelector(".dn");
