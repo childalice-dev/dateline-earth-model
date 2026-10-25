@@ -96,6 +96,8 @@ tr.isnew td.t{color:#ffb3a8}
 .ck.flash .dy{animation:flash 1.2s ease-out}
 @keyframes flash{0%{background:var(--newdate);color:#1a0500;transform:scale(1.25)}100%{background:transparent;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.ck.flash .dy{animation:none}}
+.shiplab{font-weight:700}
+.ck.shipck{border-style:dashed;border-left:6px solid #ffffff}
 .timerow input{flex:1;min-width:0}
 .timerow button{white-space:nowrap}
 </style>
@@ -136,6 +138,13 @@ tr.isnew td.t{color:#ffb3a8}
           <button data-jump="720">UTC 12:00</button>
           <label style="margin:0 0 0 auto" for="speed">速度</label>
           <input type="range" id="speed" min="1" max="10" value="4" style="width:90px">
+        </div>
+        <div class="row shiprow">
+          <span class="shiplab">小船</span>
+          <button id="shipE" aria-pressed="true">向東航行</button>
+          <button id="shipW" aria-pressed="false">向西航行</button>
+          <button id="shipReset">回到起點</button>
+          <span class="note">沿北緯 32° 橫越太平洋，速度為示意（每小時 2°）</span>
         </div>
         <div class="legend">
           <span style="--c:var(--dateline)">國際換日線 180°</span>
@@ -180,6 +189,10 @@ const WEEK = "日一二三四五六";
 
 const $ = id => document.getElementById(id);
 const state = {min:+$("time").value, playing:false};
+// 小船：沿北緯 32° 橫越北太平洋，速度為示意用（每小時 2° 經度，比真的船快很多）
+const SHIP={lat:32, speed:2, start:{1:160,[-1]:-160}};
+const ship={dir:1, lon:160};
+const wrapLon=l=>((l+540)%360)-180;
 
 function baseDate(){ const [y,m,d]=$("date").value.split("-").map(Number); return Date.UTC(y,(m||1)-1,d||1); }
 function declination(){ // 太陽直射緯度（近似）
@@ -204,7 +217,8 @@ function terminator(sl,decDeg){
 }
 function dayNightTag(ctx,x,y,txt,fg,bg){
   ctx.save(); ctx.font=`700 15px ${css("--f-body")}`; ctx.textAlign="center"; ctx.textBaseline="middle";
-  const tw=ctx.measureText(txt).width+18;
+  const tw=ctx.measureText(txt).width+18, cw=ctx.canvas.width/(window.devicePixelRatio||1);
+  x=Math.min(Math.max(x,tw/2+4),cw-tw/2-4);
   ctx.fillStyle=bg; ctx.beginPath(); ctx.roundRect(x-tw/2,y-13,tw,26,13); ctx.fill();
   ctx.fillStyle=fg; ctx.fillText(txt,x,y+1); ctx.restore();
 }
@@ -307,6 +321,11 @@ function drawGlobe(){
     gx.fillStyle=c.sea?"rgba(200,220,255,.6)":"#fff";
     gx.shadowColor="rgba(0,0,0,.7)"; gx.shadowBlur=4; gx.fillText(c.n,x,y); gx.shadowBlur=0;
   }
+  // 小船
+  { const a=(ship.lon-sl)*D2R, [x,y]=polar(ship.lon,SHIP.lat), hd=Math.atan2(-Math.cos(a),-Math.sin(a))+(ship.dir>0?0:Math.PI);
+    gx.setLineDash([2,4]); gx.strokeStyle="rgba(255,255,255,.75)"; gx.lineWidth=1.5; gx.beginPath();
+    for(let k=0;k<=12;k++){const [px,py]=polar(ship.lon-ship.dir*k*1.5,SHIP.lat); k?gx.lineTo(px,py):gx.moveTo(px,py);} gx.stroke(); gx.setLineDash([]);
+    drawBoat(gx,x,y,hd); }
   // 時鐘的城市
   gx.textAlign="left"; gx.font=`700 13px ${css("--f-body")}`;
   for(const c of CITIES){
@@ -373,6 +392,17 @@ function crossAt(l,west,east){
   }
 }
 
+// 俯視的小船：船頭朝 rot 方向
+function drawBoat(ctx,x,y,rot){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(rot); ctx.scale(1.35,1.35);
+  ctx.beginPath(); ctx.moveTo(12,0); ctx.quadraticCurveTo(6,-6,-9,-5); ctx.lineTo(-9,5); ctx.quadraticCurveTo(6,6,12,0); ctx.closePath();
+  ctx.fillStyle="#ffffff"; ctx.fill(); ctx.strokeStyle="#0b1424"; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle="#e2483a"; ctx.fillRect(-5,-2.5,6,5);
+  ctx.restore();
+  ctx.save(); ctx.font=`700 12px ${css("--f-body")}`; ctx.textAlign="center"; ctx.fillStyle="#fff";
+  ctx.shadowColor="rgba(0,0,0,.9)"; ctx.shadowBlur=4; ctx.fillText("小船",x,y-17); ctx.restore();
+}
+
 /* ---------- 平面地圖 ---------- */
 const f=$("flat"), fx=f.getContext("2d"); let F={};
 const shadeF=document.createElement("canvas"); shadeF.width=360; shadeF.height=180;
@@ -428,6 +458,10 @@ function drawFlat(){
   // 海洋
   fx.textAlign="center"; fx.textBaseline="middle"; const fs=Math.max(10,w/80);
   for(const c of CONTINENTS){ const [x,y]=fxy(c.lon,c.lat); fx.font=(c.sea?"400 ":"700 ")+fs+"px "+css("--f-body"); fx.fillStyle=c.sea?"rgba(200,220,255,.6)":"#fff"; fx.shadowColor="rgba(0,0,0,.7)"; fx.shadowBlur=4; fx.fillText(c.n,x,y); fx.shadowBlur=0; }
+  { const [x,y]=fxy(ship.lon,SHIP.lat);
+    fx.setLineDash([2,4]); fx.strokeStyle="rgba(255,255,255,.75)"; fx.lineWidth=1.5; fx.beginPath();
+    const tail=x-ship.dir*18*w/360; fx.moveTo(Math.max(0,Math.min(w,tail)),y); fx.lineTo(x,y); fx.stroke(); fx.setLineDash([]);
+    drawBoat(fx,x,y,ship.dir>0?0:Math.PI); }
   for(const c of CITIES){ const [x,y]=fxy(c.lon,c.lat); fx.beginPath(); fx.arc(x,y,4,0,Math.PI*2); fx.fillStyle=c.k; fx.fill(); fx.strokeStyle="#000"; fx.lineWidth=1; fx.stroke(); }
   // 跨線標籤
   { const [od,nd]=dayNames(), y=22;
@@ -450,17 +484,22 @@ function drawPanel(){
 }
 
 /* ---------- 四個時區時鐘 ---------- */
+const SHIPCK={n:"小船",k:"#ffffff",ship:true};
+const CLOCKS=[...CITIES,SHIPCK];
+const lonTxt=l=>`${l>=0?"東經":"西經"}${Math.abs(l).toFixed(1)}°`;
 function buildClocks(){
-  $("clocks").innerHTML=CITIES.map((c,i)=>`<div class="ck" id="ck${i}" style="--k:${c.k}">
-      <div class="nm">${c.n}<span class="zn">${c.sub}・UTC${c.tz>=0?"+":"−"}${Math.abs(c.tz)}</span></div>
+  $("clocks").innerHTML=CLOCKS.map((c,i)=>`<div class="ck${c.ship?" shipck":""}" id="ck${i}" style="--k:${c.k}">
+      <div class="nm">${c.n}<span class="zn">${c.ship?"":c.sub+"・UTC"+(c.tz>=0?"+":"−")+Math.abs(c.tz)}</span></div>
       <div class="dt">--:--</div>
       <div class="dy">--</div><div class="dn"></div>
     </div>`).join("");
 }
 const lastDay={};
 function drawClocks(day){
-  CITIES.forEach((c,i)=>{
-    let h=utcH()+c.tz; const off=Math.floor(h/24); h-=off*24;
+  CLOCKS.forEach((c,i)=>{
+    const tz=c.ship?ship.lon/15:c.tz;
+    if(c.ship) $("ck"+i).querySelector(".zn").textContent=lonTxt(ship.lon)+"・"+(ship.dir>0?"向東":"向西");
+    let h=utcH()+tz; const off=Math.floor(h/24); h-=off*24;
     const H=Math.floor(h), M=Math.floor((h-H)*60+1e-6);
     const el=$("ck"+i), isDay=h>=6&&h<18, dn=el.querySelector(".dn");
     dn.textContent=isDay?"白天":"夜晚"; dn.classList.toggle("day",isDay);
@@ -483,9 +522,10 @@ LAND.forEach(r=>{
   r.uw=uw;
 });
 
-$("time").addEventListener("input",e=>{state.min=+e.target.value;render();});
+$("time").addEventListener("input",e=>{shift(+e.target.value-state.min);});
 // 加減分鐘；跨過 UTC 午夜時日期跟著前進或後退
 function shift(dm){
+  ship.lon=wrapLon(ship.lon+ship.dir*SHIP.speed*dm/60);
   let m=state.min+dm, dd=Math.floor(m/1440);
   m-=dd*1440; state.min=Math.round(m);
   if(dd){ const d=new Date(baseDate()+dd*864e5); $("date").value=d.toISOString().slice(0,10); }
@@ -508,7 +548,15 @@ g.addEventListener("pointermove",e=>{
 const endDrag=()=>{drag=null;g.classList.remove("dragging");};
 g.addEventListener("pointerup",endDrag); g.addEventListener("pointercancel",endDrag);
 $("date").addEventListener("input",render);
-document.querySelectorAll("[data-jump]").forEach(b=>b.addEventListener("click",()=>{state.min=+b.dataset.jump;$("time").value=state.min;render();}));
+document.querySelectorAll("[data-jump]").forEach(b=>b.addEventListener("click",()=>shift(+b.dataset.jump-state.min)));
+function setShip(dir){
+  ship.dir=dir; ship.lon=SHIP.start[dir];
+  $("shipE").setAttribute("aria-pressed",dir===1); $("shipW").setAttribute("aria-pressed",dir===-1);
+  delete lastDay[CITIES.length]; render();
+}
+$("shipE").addEventListener("click",()=>setShip(1));
+$("shipW").addEventListener("click",()=>setShip(-1));
+$("shipReset").addEventListener("click",()=>setShip(ship.dir));
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 let last=0;
 function tick(ts){
