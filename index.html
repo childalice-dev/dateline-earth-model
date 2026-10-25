@@ -108,7 +108,7 @@ tr.isnew td.t{color:#ffb3a8}
       </div>
       <div class="stage">
         <div class="clocks" id="clocks" aria-live="off"></div>
-        <canvas id="globe" aria-label="北極俯視的地球，顯示陽光、經線、各大洲與日期分區。可拖曳旋轉來改變時間"></canvas>
+        <canvas id="globe" aria-label="北極俯視的地球，顯示陽光、經線、國家位置與日期分區。可拖曳旋轉來改變時間"></canvas>
       </div>
       <div class="gbottom">
         <div class="row">
@@ -166,9 +166,7 @@ const CITIES = [
   {n:"美西",sub:"洛杉磯",lon:-118.2,lat:34.1,tz:-8,k:"#b6e86a"},
 ];
 const CONTINENTS = [
-  {n:"亞洲",lon:95,lat:48},{n:"歐洲",lon:55,lat:60},{n:"非洲",lon:20,lat:5},
-  {n:"北美洲",lon:-98,lat:58},{n:"南美洲",lon:-60,lat:-12},{n:"大洋洲",lon:134,lat:-25},
-  {n:"南極洲",lon:30,lat:-78},{n:"太平洋",lon:-150,lat:5,sea:true},{n:"大西洋",lon:-35,lat:25,sea:true},{n:"印度洋",lon:78,lat:-15,sea:true}
+  {n:"太平洋",lon:-150,lat:5,sea:true},{n:"大西洋",lon:-35,lat:25,sea:true},{n:"印度洋",lon:78,lat:-15,sea:true}
 ];
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const C = {}; ["--space","--panel","--line","--ink","--mute","--sun","--dateline","--prime","--midnight","--ocean","--land","--newday","--oldday"].forEach(k=>C[k.slice(2)]=css(k));
@@ -308,7 +306,7 @@ function drawGlobe(){
   line(sl,C.sun,1.2,[5,4]); line(ml,C.midnight,1.6);
   // 重點：本初子午線、國際換日線（加深色描邊，蓋在其他線上面）
   for(const [l,col] of [[0,C.prime],[180,C.dateline]]){ line(l,"rgba(0,0,0,.6)",7); line(l,col,3.5); }
-  // 大洲標籤
+  // 海洋標籤
   gx.textAlign="center"; gx.textBaseline="middle";
   for(const c of CONTINENTS){
     if(G.small&&c.sea) continue;
@@ -411,7 +409,7 @@ function drawFlat(){
   flab(w/2,"本初子午線 0°",C.prime,"center"); flab(0,"換日線 180°",C.dateline,"left"); flab(w,"換日線 180°",C.dateline,"right");
   // 太陽直射點
   const [sx,sy]=fxy(sl,declination()); fx.beginPath(); fx.arc(sx,sy,7,0,Math.PI*2); fx.fillStyle=C.sun; fx.fill();
-  // 大洲
+  // 海洋
   fx.textAlign="center"; fx.textBaseline="middle"; const fs=Math.max(10,w/80);
   for(const c of CONTINENTS){ const [x,y]=fxy(c.lon,c.lat); fx.font=(c.sea?"400 ":"700 ")+fs+"px "+css("--f-body"); fx.fillStyle=c.sea?"rgba(200,220,255,.6)":"#fff"; fx.shadowColor="rgba(0,0,0,.7)"; fx.shadowBlur=4; fx.fillText(c.n,x,y); fx.shadowBlur=0; }
   for(const c of CITIES){ const [x,y]=fxy(c.lon,c.lat); fx.beginPath(); fx.arc(x,y,4,0,Math.PI*2); fx.fillStyle=c.k; fx.fill(); fx.strokeStyle="#000"; fx.lineWidth=1; fx.stroke(); }
