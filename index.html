@@ -132,6 +132,7 @@ tr.isnew td.t{color:#ffb3a8}
           <button id="fwd1h">+1 小時</button>
         </div>
         <div class="row">
+          <button id="now">現在</button>
           <button id="play" aria-pressed="false">播放</button>
           <button data-jump="0">UTC 0:00</button>
           <button data-jump="720">UTC 12:00</button>
@@ -560,8 +561,16 @@ function tick(ts){
   requestAnimationFrame(tick);
 }
 $("play").addEventListener("click",e=>{state.playing=!state.playing;e.target.setAttribute("aria-pressed",state.playing);e.target.textContent=state.playing?"暫停":"播放";if(state.playing)requestAnimationFrame(tick);});
+// 跳到真實的現在時間（UTC），小船位置不變
+function goNow(){
+  const n=new Date();
+  $("date").value=n.toISOString().slice(0,10);
+  state.min=n.getUTCHours()*60+n.getUTCMinutes(); $("time").value=state.min;
+}
+$("now").addEventListener("click",()=>{goNow();render();});
 function resize(){sizeGlobe();sizeFlat();render();}
 addEventListener("resize",resize);
+goNow();
 resize();
 if(document.fonts) document.fonts.ready.then(render);
 </script>
