@@ -272,8 +272,8 @@ function drawGlobe(){
   // 晨昏線與白天／黑夜標籤
   gx.beginPath(); terminator(sl,dec).forEach((p,i)=>{const [x,y]=polar(p[0],p[1]); i?gx.lineTo(x,y):gx.moveTo(x,y);});
   gx.strokeStyle="rgba(255,214,140,.85)"; gx.lineWidth=2; gx.stroke();
-  dayNightTag(gx,...polar(sl+180,-50),"黑夜","#c9d6ff","rgba(2,4,16,.8)");
-  dayNightTag(gx,...polar(sl,-50),"白天","#3a2600","rgba(255,214,140,.9)");
+  dayNightTag(gx,...polar(sl+150,-40),"黑夜","#c9d6ff","rgba(2,4,16,.8)");
+  dayNightTag(gx,...polar(sl+30,-40),"白天","#3a2600","rgba(255,214,140,.9)");
   // 緯線
   gx.strokeStyle="rgba(230,236,247,.18)"; gx.lineWidth=.8;
   for(let lat=60;lat>-90;lat-=30){ gx.beginPath(); gx.arc(cx,cy,G.R*(90-lat)/180,0,Math.PI*2); gx.stroke(); }
@@ -319,15 +319,10 @@ function drawGlobe(){
     gx.fillStyle=lon===180?C.dateline:C.mute;
     gx.fillText(lon===180?"180°":lon===0?"0°":Math.abs(lon)+(lon>0?"E":"W"),x,y);
   }
-  const lab=(l,txt,col)=>{const a=(l-sl)*D2R;const x=cx+R*.78*Math.cos(a),y=cy-R*.78*Math.sin(a);
-    gx.font=`700 15px ${css("--f-mono")}`;const tw=gx.measureText(txt).width+14;
-    gx.fillStyle="rgba(11,20,36,.85)";gx.fillRect(x-tw/2,y-12,tw,24);gx.strokeStyle=col;gx.lineWidth=1;gx.strokeRect(x-tw/2,y-12,tw,24);
-    gx.fillStyle=col;gx.fillText(txt,x,y+1);};
-  const day=baseDate();
-  if(utcH()<=12){ const span=(ml+180); // 舊日期 -180..ml
-    if(span>8) lab(-180+span/2, fmtDate(day-864e5), "#d79bff"); if(360-span>8) lab(ml+(360-span)/2, fmtDate(day), "#ffa04a"); }
-  else { const span=180-ml;
-    if(360-span>8) lab(ml-(360-span)/2, fmtDate(day), "#d79bff"); if(span>8) lab(ml+span/2, fmtDate(day+864e5), "#ffa04a"); }
+  // 跨線標籤：線的西側是哪一天、東側是哪一天
+  const [od,nd]=dayNames();
+  if(Math.abs(Math.abs(ml)-180)>3) crossAt(ml,od,nd);   // 午夜線：西舊、東新
+  crossAt(180,nd,od);                                   // 換日線：西新、東舊
 }
 
 // 沿著經線寫字，文字保持不倒過來
@@ -340,6 +335,36 @@ function lineLabel(l,txt,col){
   gx.fillStyle="rgba(8,14,28,.85)"; gx.beginPath(); gx.roundRect(-tw/2,-10,tw,20,5); gx.fill();
   gx.strokeStyle=col; gx.lineWidth=1; gx.stroke();
   gx.fillStyle=col; gx.fillText(txt,0,1); gx.restore();
+}
+
+// 現在地球上的兩個日期，回傳 [舊的那天, 新的那天]，例如 ["週六","週日"]
+function dayNames(){
+  const old=new Date(baseDate()-(utcH()<=12?864e5:0)), nw=new Date(old.getTime()+864e5);
+  return ["週"+WEEK[old.getUTCDay()], "週"+WEEK[nw.getUTCDay()]];
+}
+const OLDC="#d79bff", NEWC="#ffa04a";
+// 一個橫跨分界線的小標籤：左半寫西側的日期，右半寫東側的日期；只給一邊時貼著線往內畫
+function crossPill(ctx,x,y,rot,left,right){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(rot);
+  ctx.font=`700 13px ${css("--f-body")}`; ctx.textBaseline="middle";
+  const pad=8, lw=left?ctx.measureText(left).width+pad*2:0, rw=right?ctx.measureText(right).width+pad*2:0, hh=11;
+  ctx.fillStyle="rgba(8,14,28,.9)"; ctx.beginPath(); ctx.roundRect(-lw,-hh,lw+rw,hh*2,6); ctx.fill();
+  if(left){ ctx.fillStyle=left===dayNames()[0]?OLDC:NEWC; ctx.textAlign="right"; ctx.fillText(left,-pad,1); }
+  if(right){ ctx.fillStyle=right===dayNames()[0]?OLDC:NEWC; ctx.textAlign="left"; ctx.fillText(right,pad,1); }
+  ctx.strokeStyle="rgba(230,236,247,.9)"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(0,-hh-3); ctx.lineTo(0,hh+3); ctx.stroke();
+  ctx.restore();
+}
+// 在地球的某條經線上放跨線標籤：兩個字各放在線的一側，文字保持水平
+function crossAt(l,west,east){
+  const a=(l-subLon())*D2R, r=G.R*0.84, x=G.cx+r*Math.cos(a), y=G.cy-r*Math.sin(a);
+  const tx=-Math.sin(a), ty=-Math.cos(a);   // 螢幕上往東的方向
+  for(const [txt,sgn] of [[west,-1],[east,1]]){
+    gx.save(); gx.font=`700 13px ${css("--f-body")}`; gx.textAlign="center"; gx.textBaseline="middle";
+    const tw=gx.measureText(txt).width+14, hw=Math.abs(tx)*tw/2+Math.abs(ty)*11+4;
+    const px=x+sgn*tx*hw, py=y+sgn*ty*hw;
+    gx.fillStyle="rgba(8,14,28,.9)"; gx.beginPath(); gx.roundRect(px-tw/2,py-11,tw,22,6); gx.fill();
+    gx.fillStyle=txt===dayNames()[0]?OLDC:NEWC; gx.fillText(txt,px,py+1); gx.restore();
+  }
 }
 
 /* ---------- 平面地圖 ---------- */
@@ -371,8 +396,8 @@ function drawFlat(){
   const tp=terminator(sl,dec*180/Math.PI).map(p=>[((p[0]+540)%360)-180,p[1]]).sort((a,b)=>a[0]-b[0]);
   fx.beginPath(); tp.forEach((p,i)=>{const [x,y]=fxy(p[0],p[1]); i?fx.lineTo(x,y):fx.moveTo(x,y);});
   fx.strokeStyle="rgba(255,214,140,.85)"; fx.lineWidth=2; fx.stroke();
-  dayNightTag(fx,...fxy(((sl+360)%360)-180,-30),"黑夜","#c9d6ff","rgba(2,4,16,.8)");
-  dayNightTag(fx,...fxy(sl,-30),"白天","#3a2600","rgba(255,214,140,.9)");
+  dayNightTag(fx,...fxy(((sl+330)%360)-180,-30),"黑夜","#c9d6ff","rgba(2,4,16,.8)");
+  dayNightTag(fx,...fxy(((sl+210)%360)-180,-30),"白天","#3a2600","rgba(255,214,140,.9)");
   // 經線
   for(let lon=-180;lon<=180;lon+=15){
     const [x]=fxy(lon,0); fx.beginPath(); fx.moveTo(x,0); fx.lineTo(x,h);
@@ -398,11 +423,10 @@ function drawFlat(){
   fx.textAlign="center"; fx.textBaseline="middle"; const fs=Math.max(10,w/80);
   for(const c of CONTINENTS){ const [x,y]=fxy(c.lon,c.lat); fx.font=(c.sea?"400 ":"700 ")+fs+"px "+css("--f-body"); fx.fillStyle=c.sea?"rgba(200,220,255,.6)":"#fff"; fx.shadowColor="rgba(0,0,0,.7)"; fx.shadowBlur=4; fx.fillText(c.n,x,y); fx.shadowBlur=0; }
   for(const c of CITIES){ const [x,y]=fxy(c.lon,c.lat); fx.beginPath(); fx.arc(x,y,4,0,Math.PI*2); fx.fillStyle=c.k; fx.fill(); fx.strokeStyle="#000"; fx.lineWidth=1; fx.stroke(); }
-  // 日期標籤
-  const tag=(x,txt,col)=>{fx.lineWidth=1;fx.font=`700 ${Math.max(12,w/60)}px ${css("--f-mono")}`;const tw=fx.measureText(txt).width+12,th=Math.max(20,w/45);
-    x=Math.min(Math.max(x,tw/2+4),w-tw/2-4);fx.fillStyle="rgba(11,20,36,.85)";fx.fillRect(x-tw/2,10,tw,th);fx.strokeStyle=col;fx.strokeRect(x-tw/2,10,tw,th);fx.fillStyle=col;fx.fillText(txt,x,10+th/2+1);};
-  if(utcH()<=12){ if(mx>40) tag(mx/2,fmtDate(day-864e5),"#d79bff"); if(w-mx>40) tag((mx+w)/2,fmtDate(day),"#ffa04a"); }
-  else { if(mx>40) tag(mx/2,fmtDate(day),"#d79bff"); if(w-mx>40) tag((mx+w)/2,fmtDate(day+864e5),"#ffa04a"); }
+  // 跨線標籤
+  { const [od,nd]=dayNames(), y=22;
+    if(Math.abs(Math.abs(ml)-180)>3) crossPill(fx,Math.min(Math.max(mx,60),w-60),y,0,od,nd);
+    crossPill(fx,0,y,0,null,od); crossPill(fx,w,y,0,nd,null); }
   fx.restore();
 }
 
