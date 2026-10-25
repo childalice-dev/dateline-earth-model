@@ -322,7 +322,7 @@ function drawGlobe(){
   // 跨線標籤：線的西側是哪一天、東側是哪一天
   const [od,nd]=dayNames();
   if(Math.abs(Math.abs(ml)-180)>3) crossAt(ml,od,nd);   // 午夜線：西舊、東新
-  crossAt(180,nd,od);                                   // 換日線：西新、東舊
+  crossAt(180,nd,ml===-180?nd:od);                     // 換日線：西新、東舊；兩線重疊時兩側同一天
 }
 
 // 沿著經線寫字，文字保持不倒過來
@@ -426,7 +426,7 @@ function drawFlat(){
   // 跨線標籤
   { const [od,nd]=dayNames(), y=22;
     if(Math.abs(Math.abs(ml)-180)>3) crossPill(fx,Math.min(Math.max(mx,60),w-60),y,0,od,nd);
-    crossPill(fx,0,y,0,null,od); crossPill(fx,w,y,0,nd,null); }
+    crossPill(fx,0,y,0,null,ml===-180?nd:od); crossPill(fx,w,y,0,nd,null); }
   fx.restore();
 }
 
@@ -438,7 +438,7 @@ function drawPanel(){
   const olds=fmtDate(utcH()<=12?day-864e5:day), news=fmtDate(utcH()<=12?day:day+864e5);
   const newPct=Math.round((180-ml)/360*100);
   $("status").innerHTML = (Math.abs(ml)>179.9 || newPct===100 || newPct===0)
-    ? `午夜線和換日線重疊，<b>全世界都是</b> <span class="chip new">${news}</span>`
+    ? `午夜線和換日線重疊，<b>全世界都是</b> <span class="chip new">${news}</span>。<br>換日線兩側日期相同，但時間差 24 小時：西側是這天的最後一刻，東側是這天的第一刻。`
     : `午夜線在 <b>${dir}</b>。<br>地球上同時有 <span class="chip old">${olds}</span> 和 <span class="chip new">${news}</span>，新的一天佔了約 <b>${newPct}%</b> 的經度。`;
   drawClocks(day);
 }
