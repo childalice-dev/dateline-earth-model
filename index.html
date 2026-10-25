@@ -77,18 +77,18 @@ tr.isnew td.t{color:#ffb3a8}
 #globe.dragging{cursor:grabbing}
 .gbottom{display:flex;flex-direction:column;gap:10px;margin-top:6px}
 .timerow{flex-wrap:nowrap}
-.stage{display:grid;grid-template-columns:clamp(160px,22%,220px) minmax(0,1fr);gap:16px;align-items:stretch;margin-top:8px}
+.stage{display:grid;grid-template-columns:clamp(128px,14%,150px) minmax(0,1fr);gap:16px;align-items:center;margin-top:8px}
 @media (max-width:600px){.stage{grid-template-columns:minmax(0,1fr)}}
 .clocks{display:flex;flex-direction:column;gap:6px;min-width:0}
-.clocks .ck{flex:1 1 0;min-height:0;align-content:center}
+.clocks .ck{flex:none}
 @media (max-width:600px){.clocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
 .ck{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"nm nm" "dt dt" "dy dn";gap:2px 8px;align-items:center;border:2px solid var(--line);border-left:6px solid var(--k);border-radius:8px;padding:4px 10px;transition:border-color .3s,background .3s}
-.ck{border-color:rgba(215,155,255,.45)}
-.ck.isnew{border-color:var(--newdate);border-left-color:var(--k);background:rgba(255,160,74,.08)}
-.ck .nm{grid-area:nm;font-weight:700;font-size:14px;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.ck{border-color:var(--line)}
+.ck.isnew{background:rgba(255,160,74,.07)}
+.ck .nm{grid-area:nm;font-weight:700;font-size:13px;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .ck .zn{font-family:var(--f-mono);font-size:12px;color:var(--mute);font-weight:400}
-.ck .dt{grid-area:dt;font-family:var(--f-mono);font-size:var(--dts,26px);font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:.02em}
-.ck .dy{grid-area:dy;font-family:var(--f-mono);font-size:12px;padding:0 8px;border-radius:999px;border:1px solid var(--olddate);color:#ecd6ff;white-space:nowrap}
+.ck .dt{grid-area:dt;font-family:var(--f-mono);font-size:22px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.ck .dy{grid-area:dy;font-family:var(--f-mono);font-size:11px;padding:0 6px;border-radius:999px;border:1px solid var(--olddate);color:#ecd6ff;white-space:nowrap}
 .ck .dn{grid-area:dn;font-size:12px;color:var(--mute);text-align:right;white-space:nowrap}
 @media (max-width:600px){.ck{padding:6px 8px}.ck .dt{font-size:26px}.ck .dy{font-size:12px;padding:0 6px}.ck .nm{font-size:15px}}
 .ck .dn.day{color:var(--sun)}
@@ -233,9 +233,6 @@ function sizeGlobe(){
   g.style.height=h+"px"; g.width=w*dpr; g.height=h*dpr;
   gx.setTransform(dpr,0,0,dpr,0,0);
   G = {w,h,small,cx:w*(small?0.42:0.43),cy:h/2,R};
-  // 數字鐘欄跟地球等高，字級依每格高度縮放
-  const side=getComputedStyle($("clocks")).flexDirection==="column";
-  $("clocks").style.setProperty("--dts", side ? Math.max(18,Math.min(40,((h-24)/5)*0.34))+"px" : "");
 }
 function polar(lon,lat){
   const r=G.R*(90-lat)/180, a=(lon-subLon())*D2R;
@@ -292,8 +289,6 @@ function drawGlobe(){
   // 晨昏線與白天／黑夜標籤
   gx.beginPath(); terminator(sl,dec).forEach((p,i)=>{const [x,y]=polar(p[0],p[1]); i?gx.lineTo(x,y):gx.moveTo(x,y);});
   gx.strokeStyle="rgba(255,214,140,.85)"; gx.lineWidth=2; gx.stroke();
-  dayNightTag(gx,...polar(sl+150,-40),"黑夜","#c9d6ff","rgba(2,4,16,.8)");
-  dayNightTag(gx,...polar(sl+30,-40),"白天","#3a2600","rgba(255,214,140,.9)");
   // 緯線
   gx.strokeStyle="rgba(230,236,247,.18)"; gx.lineWidth=.8;
   for(let lat=60;lat>-90;lat-=30){ gx.beginPath(); gx.arc(cx,cy,G.R*(90-lat)/180,0,Math.PI*2); gx.stroke(); }
@@ -338,6 +333,8 @@ function drawGlobe(){
 
   // 外框、經度刻度、日期標籤
   gx.beginPath(); gx.arc(cx,cy,R,0,Math.PI*2); gx.strokeStyle=C.line; gx.lineWidth=1.5; gx.stroke();
+  dayNightTag(gx,cx-R*0.9,cy-R*0.95,"黑夜","#c9d6ff","rgba(2,4,16,.8)");
+  dayNightTag(gx,cx+R*0.9,cy-R*0.95,"白天","#3a2600","rgba(255,214,140,.9)");
   gx.font=`400 11px ${css("--f-mono")}`; gx.fillStyle=C.mute; gx.textAlign="center"; gx.textBaseline="middle";
   for(let lon=-150;lon<=180;lon+=30){
     const a=(lon-sl)*D2R, x=cx+(R+20)*Math.cos(a), y=cy-(R+20)*Math.sin(a);
@@ -352,13 +349,12 @@ function drawGlobe(){
 
 // 沿著經線寫字，文字保持不倒過來
 function lineLabel(l,txt,col){
-  let a=(l-subLon())*D2R; const r=G.R*0.66, x=G.cx+r*Math.cos(a), y=G.cy-r*Math.sin(a);
+  let a=(l-subLon())*D2R; const r=G.R*0.56, x=G.cx+r*Math.cos(a), y=G.cy-r*Math.sin(a);
   let rot=-a; rot=((rot%(2*Math.PI))+2*Math.PI)%(2*Math.PI); if(rot>Math.PI/2&&rot<Math.PI*1.5) rot-=Math.PI;
   gx.save(); gx.translate(x,y); gx.rotate(rot);
   gx.font=`700 12px ${css("--f-body")}`; gx.textAlign="center"; gx.textBaseline="middle";
   const tw=gx.measureText(txt).width+12;
-  gx.fillStyle="rgba(8,14,28,.85)"; gx.beginPath(); gx.roundRect(-tw/2,-10,tw,20,5); gx.fill();
-  gx.strokeStyle=col; gx.lineWidth=1; gx.stroke();
+  gx.fillStyle="rgba(8,14,28,.8)"; gx.beginPath(); gx.roundRect(-tw/2,-9,tw,18,9); gx.fill();
   gx.fillStyle=col; gx.fillText(txt,0,1); gx.restore();
 }
 
@@ -381,7 +377,7 @@ function crossPill(ctx,x,y,rot,left,right){
 }
 // 在地球的某條經線上放跨線標籤：兩個字各放在線的一側，文字保持水平
 function crossAt(l,west,east){
-  const a=(l-subLon())*D2R, r=G.R*0.84, x=G.cx+r*Math.cos(a), y=G.cy-r*Math.sin(a);
+  const a=(l-subLon())*D2R, r=G.R*0.89, x=G.cx+r*Math.cos(a), y=G.cy-r*Math.sin(a);
   const tx=-Math.sin(a), ty=-Math.cos(a);   // 螢幕上往東的方向
   for(const [txt,sgn] of [[west,-1],[east,1]]){
     gx.save(); gx.font=`700 13px ${css("--f-body")}`; gx.textAlign="center"; gx.textBaseline="middle";
@@ -450,7 +446,7 @@ function drawFlat(){
   vline(w/2,C.prime,1.6); vline(1,C.dateline,3); vline(w-1,C.dateline,3);
   const flab=(x,txt,col,align)=>{fx.font=`700 ${Math.max(10,w/95)}px ${css("--f-body")}`;fx.textBaseline="middle";const tw=fx.measureText(txt).width+12,th=20,y=h-th-8;
     const x0=align==="left"?x+6:align==="right"?x-6-tw:x-tw/2;
-    fx.fillStyle="rgba(8,14,28,.85)";fx.beginPath();fx.roundRect(x0,y,tw,th,5);fx.fill();fx.strokeStyle=col;fx.lineWidth=1;fx.stroke();
+    fx.fillStyle="rgba(8,14,28,.8)";fx.beginPath();fx.roundRect(x0,y,tw,th,th/2);fx.fill();
     fx.fillStyle=col;fx.textAlign="left";fx.fillText(txt,x0+6,y+th/2+1);};
   flab(w/2,"本初子午線 0°",C.prime,"center"); flab(0,"換日線 180°",C.dateline,"left"); flab(w,"換日線 180°",C.dateline,"right");
   // 太陽直射點
