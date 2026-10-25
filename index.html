@@ -57,9 +57,6 @@ td.lon{color:var(--mute);font-family:var(--f-mono);font-size:12px}
 tr.isnew td.t{color:#ffb3a8}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--mute)}
 .legend span::before{content:"";display:inline-block;width:18px;height:2px;vertical-align:middle;margin-right:6px;background:var(--c)}
-.legend span.sw::before{width:14px;height:14px;border-radius:3px;background:var(--ocean)}
-.legend span.sw.new::before{background:repeating-linear-gradient(-45deg,var(--newdate) 0 2px,var(--ocean) 2px 6px)}
-.legend span.sw.old::before{background:repeating-linear-gradient(45deg,var(--olddate) 0 2px,var(--ocean) 2px 6px)}
 .flat h2,.rules h2{font-family:var(--f-display);font-size:20px;margin:0 0 8px;letter-spacing:.03em}
 #flat{aspect-ratio:2/1;border-radius:6px}
 .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
@@ -135,8 +132,6 @@ tr.isnew td.t{color:#ffb3a8}
           <input type="range" id="speed" min="1" max="10" value="4" style="width:90px">
         </div>
         <div class="legend">
-          <span class="sw new">較新的日期（橘色斜線）</span>
-          <span class="sw old">較舊的日期（紫色斜線）</span>
           <span style="--c:var(--dateline)">國際換日線 180°</span>
           <span style="--c:var(--prime)">本初子午線 0°</span>
           <span style="--c:var(--midnight)">午夜線（地方時 0:00）</span>
@@ -150,7 +145,7 @@ tr.isnew td.t{color:#ffb3a8}
   <section class="card flat">
     <h2>攤平來看：今天在哪裡，明天在哪裡</h2>
     <canvas id="flat" aria-label="平面世界地圖，顯示日夜與兩個日期的範圍"></canvas>
-    <p class="note" style="margin:8px 0 0">橘色斜線是比較新的那一天，範圍永遠從午夜線往東延伸到換日線為止；紫色斜線是比較舊的那一天。UTC 12:00 時午夜線剛好落在 180°，全世界短暫同一天。</p>
+    <p class="note" style="margin:8px 0 0">比較新的那一天（橘字），範圍永遠從午夜線往東延伸到換日線為止；其餘是比較舊的那一天（紫字）。UTC 12:00 時午夜線剛好落在 180°，全世界短暫同一天。</p>
   </section>
 
   <section class="rules">
@@ -192,18 +187,6 @@ const subLon = () => { let l=(12-utcH())*15; return ((l+540)%360)-180; };   // �
 function localInfo(lon){ const h=utcH()+lon/15; const off=Math.floor(h/24); return {h:h-off*24, off}; }
 function midnightLon(){ const t=utcH(); return t<=12 ? -15*t : 15*(24-t); }
 
-// 斜線花紋：較新的日期橘色「／」，較舊的日期紫色「＼」
-const stripeTiles={};
-function stripes(ctx,kind){
-  if(!stripeTiles[kind]){
-    const c=document.createElement("canvas"); c.width=c.height=16;
-    const t=c.getContext("2d"); t.strokeStyle=kind==="new"?"rgba(255,160,74,.85)":"rgba(215,155,255,.85)"; t.lineWidth=1.8;
-    if(kind==="new"){ t.beginPath(); t.moveTo(-4,20); t.lineTo(20,-4); t.moveTo(-4,4); t.lineTo(4,-4); t.moveTo(12,20); t.lineTo(20,12); t.stroke(); }
-    else { t.beginPath(); t.moveTo(-4,-4); t.lineTo(20,20); t.moveTo(-4,12); t.lineTo(4,20); t.moveTo(12,-4); t.lineTo(20,4); t.stroke(); }
-    stripeTiles[kind]=c;
-  }
-  return ctx.createPattern(stripeTiles[kind],"repeat");
-}
 // 晨昏線：太陽高度角為 0 的點，回傳 [經度, 緯度]
 function terminator(sl,decDeg){
   const d=decDeg*D2R, out=[];
@@ -286,11 +269,6 @@ function drawGlobe(){
   }
   sc.putImageData(img,0,0);
   gx.imageSmoothingEnabled=true; gx.drawImage(shadeG,cx-R,cy-R,2*R,2*R);
-  // 兩個日期的斜線扇形（不改底色，白天維持明亮）
-  gx.beginPath(); gx.moveTo(cx,cy); gx.arc(cx,cy,R,ang(ml),ang(180),true); gx.closePath();
-  gx.fillStyle=stripes(gx,"new"); gx.fill();
-  gx.beginPath(); gx.moveTo(cx,cy); gx.arc(cx,cy,R,ang(-180),ang(ml),true); gx.closePath();
-  gx.fillStyle=stripes(gx,"old"); gx.fill();
   // 晨昏線與白天／黑夜標籤
   gx.beginPath(); terminator(sl,dec).forEach((p,i)=>{const [x,y]=polar(p[0],p[1]); i?gx.lineTo(x,y):gx.moveTo(x,y);});
   gx.strokeStyle="rgba(255,214,140,.85)"; gx.lineWidth=2; gx.stroke();
@@ -390,8 +368,6 @@ function drawFlat(){
     img.data[k]=2;img.data[k+1]=4;img.data[k+2]=16;img.data[k+3]=a*255;
   }
   sc.putImageData(img,0,0); fx.drawImage(shadeF,0,0,w,h);
-  fx.fillStyle=stripes(fx,"new"); fx.fillRect(mx,0,w-mx,h);
-  fx.fillStyle=stripes(fx,"old"); fx.fillRect(0,0,mx,h);
   const tp=terminator(sl,dec*180/Math.PI).map(p=>[((p[0]+540)%360)-180,p[1]]).sort((a,b)=>a[0]-b[0]);
   fx.beginPath(); tp.forEach((p,i)=>{const [x,y]=fxy(p[0],p[1]); i?fx.lineTo(x,y):fx.moveTo(x,y);});
   fx.strokeStyle="rgba(255,214,140,.85)"; fx.lineWidth=2; fx.stroke();
